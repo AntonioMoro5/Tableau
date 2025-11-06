@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <title>Coldplay - Tableau</title>
 <style>
-  /* Vídeo como fondo */
+  /* Video de fondo */
   video.bg-video {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: cover; /* Ajusta sin deformar */
     z-index: -1; /* Detrás del contenido */
   }
 
@@ -23,6 +23,8 @@
     align-items: flex-start;
     min-height: 100vh;
     overflow-x: hidden;
+    font-family: Arial, sans-serif;
+    color: #fff;
   }
 
   /* Contenedor del dashboard */
@@ -31,18 +33,18 @@
     max-width: 1366px;
     box-sizing: border-box;
     position: relative;
-    z-index: 1; /* Encima del vídeo */
-    background: rgba(0, 0, 0, 0.6); /* Fondo semitransparente opcional */
+    z-index: 1; /* Encima del video */
     padding: 20px;
+    background: rgba(0, 0, 0, 0.6); /* Fondo semitransparente para destacar contenido */
     border-radius: 10px;
   }
 </style>
 </head>
 <body>
 
-<!-- Vídeo de fondo -->
-<video class="bg-video" autoplay muted loop>
-  <source src="Violeta Blanco Abstracto Pintura Fondo de Video.mp4" type="video/mp4">
+<!-- Video de fondo -->
+<video class="bg-video" autoplay muted loop preload="auto">
+  <source src="violeta-blanco-fondo.mp4" type="video/mp4">
   Tu navegador no soporta video HTML5.
 </video>
 
@@ -76,7 +78,7 @@
   if (divElement.offsetWidth > 800) {
     vizElement.style.width = '100%';
     vizElement.style.height = (divElement.offsetWidth * 0.58) + 'px';
-  } else if (div.offsetWidth > 500) {
+  } else if (divElement.offsetWidth > 500) {
     vizElement.style.width = '100%';
     vizElement.style.height = (divElement.offsetWidth * 0.58) + 'px';
   } else {
