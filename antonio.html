@@ -1,57 +1,65 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Visualización de Tableau</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
-    .tableauPlaceholder {
-      width: 100%;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Visualización de Tableau</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center; /* Centra horizontalmente */
+    align-items: flex-start; /* Arriba */
+    background-color: #f8f8f8;
+    overflow-x: hidden; /* Evita scroll horizontal */
+  }
+  .tableauPlaceholder {
+    width: 100%;
+    max-width: 1366px; /* Tamaño máximo original */
+    box-sizing: border-box;
+  }
+</style>
 </head>
 <body>
-  <div class='tableauPlaceholder' id='viz1762433464656' style='position: relative'>
-    <noscript>
-      <a href='#'>
-        <img alt='Carreras ' src='https://public.tableau.com/static/images/Ca/CarrerasMsValoradasEspaa/Carreras/1_rss.png' style='border: none' />
-      </a>
-    </noscript>
-    <object class='tableauViz' style='display:none;'>
-      <param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
-      <param name='embed_code_version' value='3' />
-      <param name='site_root' value='' />
-      <param name='name' value='CarrerasMsValoradasEspaa/Carreras' />
-      <param name='tabs' value='no' />
-      <param name='toolbar' value='yes' />
-      <param name='static_image' value='https://public.tableau.com/static/images/Ca/CarrerasMsValoradasEspaa/Carreras/1.png' />
-      <param name='animate_transition' value='yes' />
-      <param name='display_static_image' value='yes' />
-      <param name='display_spinner' value='yes' />
-      <param name='display_overlay' value='yes' />
-      <param name='display_count' value='yes' />
-      name='language' value='es-ES' />
-    </object>
-  </div>
-  <script type='text/javascript'>
-    var divElement = document.getElementById('viz1762433464656');
-    var vizElement = divElement.getElementsByTagName('object')[0];
-    if (divElement.offsetWidth > 800) {
-      vizElement.style.width = '100%';
-      vizElement.style.height = (divElement.offsetWidth * 0.75) + 'px';
-    } else if (divElement.offsetWidth > 500) {
-      vizElement.style.width = '100%';
-      vizElement.style.height = (divElement.offsetWidth * 0.75) + 'px';
-    } else {
-      vizElement.style.width = '100%';
-      vizElement.style.height = '1527px';
-    }
-    var scriptElement = document.createElement('script');
-    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
-    vizElement.parentNode.insertBefore(scriptElement, vizElement);
-  </script>
+<div class='tableauPlaceholder' id='viz1762435269354' style='position: relative'>
+  <noscript>
+    <a href='#'>
+      <img alt='Carreras ' src='https://public.tableau.com/static/images/Ca/CarrerasMsValoradasEspaa/Carreras/1_rss.png' style='border: none' />
+    </a>
+  </noscript>
+  <object class='tableauViz' style='display:none;'>
+    <param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
+    <param name='embed_code_version' value='3' />
+    <param name='site_root' value='' />
+    <param name='name' value='CarrerasMsValoradasEspaa/Carreras' />
+    <param name='tabs' value='no' />
+    <param name='toolbar' value='yes' />
+    <param name='static_image' value='https://public.tableau.com/static/images/Ca/CarrerasMsValoradasEspaa/Carreras/1.png' />
+    <param name='animate_transition' value='yes' />
+    <param name='display_static_image' value='yes' />
+    <param name='display_spinner' value='yes' />
+    <param name='display_overlay' value='yes' />
+    <param name='display_count' value='yes' />
+    <param name='language' value='es-ES' />
+  </object>
+</div>
+<script type='text/javascript'>
+  var divElement = document.getElementById('viz1762435269354');
+  var vizElement = divElement.getElementsByTagName('object')[0];
+  // Ajuste responsive
+  if (divElement.offsetWidth > 800) {
+    vizElement.style.width = '100%'; // Se adapta al contenedor
+    vizElement.style.height = (divElement.offsetWidth * 0.58) + 'px'; // Mantiene proporción similar a 1366x795
+  } else if (divElement.offsetWidth > 500) {
+    vizElement.style.width = '100%';
+    vizElement.style.height = (divElement.offsetWidth * 0.58) + 'px';
+  } else {
+    vizElement.style.width = '100%';
+    vizElement.style.height = '1527px'; // Para móviles muy pequeños
+  }
+  var scriptElement = document.createElement('script');
+  scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+  vizElement.parentNode.insertBefore(scriptElement, vizElement);
+</script>
 </body>
 </html>
