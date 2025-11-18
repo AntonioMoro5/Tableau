@@ -1,54 +1,108 @@
-<style>
-    body {
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start; /* Arriba */
-        min-height: 100vh;
-        background-color: #fff;
-    }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>San Silvestre Vallecanas 2024</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Centra todo horizontalmente */
+        }
 
-    .tableauPlaceholder {
-        margin-top: 20px; /* Ajusta para subir más */
-    }
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+        }
 
-    .tableauViz {
-        display: block;
-        margin: 0 auto;
-    }
-</style>
+        .content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1366px;
+        }
 
-<div class='tableauPlaceholder' id='viz1763500922111'>
-    <noscript>
-        <a href='#'>
-            <img alt='Dashboard 3' src='https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Dashboard3/1_rss.png' style='border: none' />
-        </a>
-    </noscript>
-    <object class='tableauViz'>
-        <param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
-        <param name='embed_code_version' value='3' />
-        <param name='site_root' value='' />
-        <param name='name' value='SanSilvestreVallecanasPopularenDatos/Dashboard3' />
-        <param name='tabs' value='no' />
-        <param name='toolbar' value='yes' />
-        <param name='static_image' value='https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Dashboard3/1.png' />
-        <param name='animate_transition' value='yes' />
-        <param name='display_static_image' value='yes' />
-        <param name='display_spinner' value='yes' />
-        <param name='display_overlay' value='yes' />
-        <param name='display_count' value='yes' />
-        <param name='language' value='es-ES' />
-        <param name='filter' value='publish=yes' />
-    </object>
-</div>
+        .tableauPlaceholder {
+            margin: 20px auto;
+        }
 
-<script type='text/javascript'>
-    var divElement = document.getElementById('viz1763500922111');
-    var vizElement = divElement.getElementsByTagName('object')[0];
-    vizElement.style.width = '1366px'; // Tamaño original
-    vizElement.style.height = '795px'; // Altura original
-    var scriptElement = document.createElement('script');
-    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
-    vizElement.parentNode.insertBefore(scriptElement, vizElement);
-</script>
+        iframe, video {
+            display: block;
+            margin: 20px auto;
+            max-width: 100%;
+            border: none;
+        }
+
+        video {
+            width: 800px; /* Ajusta el tamaño del vídeo */
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            video {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>San Silvestre Vallecanas Popular 2024</h1>
+
+    <div class="content">
+        <!-- Dashboard centrado -->
+        <div class="tableauPlaceholder" id="viz1763508078020" style="position: relative">
+            <noscript>
+                #
+                    https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Popular/1_rss.png
+                </a>
+            </noscript>
+            <object class="tableauViz" style="display:none;">
+                <param name="host_url" value="https%3A%2F%2Fpublic.tableau.com%2F" />
+                <param name="embed_code_version" value="3" />
+                <param name="site_root" value="" />
+                <param name="name" value="SanSilvestreVallecanasPopularenDatos/Popular" />
+                <param name="tabs" value="no" />
+                <param name="toolbar" value="yes" />
+                <param name="static_image" value="https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Popular/1.png" />
+                <param name="animate_transition" value="yes" />
+                <param name="display_static_image" value="yes" />
+                <param name="display_spinner" value="yes" />
+                <param name="display_overlay" value="yes" />
+                <param name="display_count" value="yes" />
+                <param name="language" value="es-ES" />
+                <param name="filter" value="publish=yes" />
+            </object>
+        </div>
+
+        <!-- Vídeo centrado -->
+        <video controls>
+            <source src="SSV24.mp4" type="video/mp4">
+            Tu navegador no soporta la reproducción de vídeo.
+        </video>
+    </div>
+
+    <script type="text/javascript">
+        var divElement = document.getElementById('viz1763508078020');
+        var vizElement = divElement.getElementsByTagName('object')[0];
+        if (divElement.offsetWidth > 800) {
+            vizElement.style.width = '1366px';
+            vizElement.style.height = '795px';
+        } else if (divElement.offsetWidth > 500) {
+            vizElement.style.width = '1366px';
+            vizElement.style.height = '795px';
+        } else {
+            vizElement.style.width = '100%';
+            vizElement.style.height = '1127px';
+        }
+        var scriptElement = document.createElement('script');
+        scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+        vizElement.parentNode.insertBefore(scriptElement, vizElement);
+    </script>
+</body>
+</html>
