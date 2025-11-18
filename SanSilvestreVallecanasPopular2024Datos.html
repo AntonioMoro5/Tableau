@@ -12,12 +12,25 @@
             background-color: #fff;
             display: flex;
             flex-direction: column;
-            align-items: center; /* Centra todo horizontalmente */
+            align-items: center;
         }
 
-        h1 {
-            text-align: center;
+        /* Contenedor del título y logo */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             margin: 20px 0;
+            gap: 15px; /* Espacio entre título y logo */
+        }
+
+        .header img {
+            height: 50px; /* Ajusta el tamaño del logo */
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin: 0;
         }
 
         .content {
@@ -32,34 +45,38 @@
             margin: 20px auto;
         }
 
-        iframe, video {
-            display: block;
-            margin: 20px auto;
-            max-width: 100%;
-            border: none;
-        }
-
         video {
-            width: 800px; /* Ajusta el tamaño del vídeo */
+            width: 800px;
             border-radius: 8px;
+            margin-top: 20px;
         }
 
         @media (max-width: 768px) {
             video {
                 width: 100%;
             }
+            .header img {
+                height: 40px;
+            }
+            .header h1 {
+                font-size: 22px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>San Silvestre Vallecanas Popular 2024</h1>
+    <!-- Título + Logo -->
+    <div class="header">
+        <h1>San Silvestre Vallecanas Popular 2024</h1>
+        <img src="logo.png" alt="Logo San Silvestre">
+    </div>
 
     <div class="content">
-        <!-- Dashboard centrado -->
+        <!-- Dashboard -->
         <div class="tableauPlaceholder" id="viz1763508078020" style="position: relative">
             <noscript>
-                #
-                    https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Popular/1_rss.png
+                <a href="#">
+                    <img alt="Popular" src="https://public.tableau.com/static/images/Sa/SanSilvestreVallecanasPopularenDatos/Popular/1_rss.png" style="border: none" />
                 </a>
             </noscript>
             <object class="tableauViz" style="display:none;">
@@ -80,7 +97,7 @@
             </object>
         </div>
 
-        <!-- Vídeo centrado -->
+        <!-- Vídeo -->
         <video controls>
             <source src="SSV24.mp4" type="video/mp4">
             Tu navegador no soporta la reproducción de vídeo.
