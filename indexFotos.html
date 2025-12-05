@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Álbum Multimedia Local - Optimizado</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+  :root{ --bg:#f3f4f6; --card:#ffffff; --muted:#6b7280; --accent:#3B82F6 }
+  [data-theme='dark']{ --bg:#0b1220; --card:#0f1724; --muted:#9ca3af; --accent:#60a5fa }
+  html,body{height:100%}
+  body{font-family:'Inter',sans-serif;background:var(--bg);margin:0;padding-top:14rem;transition:background .15s}
+  .fixed-header{position:fixed;top:0;left:0;width:100%;z-index:60;background:var(--card);box-shadow:0 6px 18px rgba(2,6,23,0.08)}
+  .selected{outline:4px solid rgba(59,130,246,0.22);box-shadow:0 8px 20px rgba(59,130,246,0.08)}
+  .spinner{display:inline-block;width:1rem;height:1rem;border:3px solid rgba(59,130,246,0.15);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .video-overlay::after{content:'▶';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2rem;color:white;text-shadow:0 0 8px rgba(0,0,0,0.8)}
+  .thumb{background:#e6edf8;display:block;object-fit:cover}
+  .month-indicator{position:fixed;left:1rem;top:12.2rem;z-index:55;background:linear-gradient(90deg,rgba(255,255,255,0.85),rgba(255,255,255,0.7));backdrop-filter:blur(6px);padding:.5rem 1rem;border-radius:.75rem;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+  [data-theme='dark'] .month-indicator{background:linear-gradient(90deg,rgba(15,23,36,0.85),rgba(15,23,36,0.7))}
+  .tiny-badge{font-size:.7rem;padding:.12rem .5rem;border-radius:999px}
+  @media(min-width:640px){body{padding-top:11.5rem}.month-indicator{top:11rem}}
+  
+  /* Estilo para los botones de navegación */
+  #prev-btn, #next-btn {
+    transition: background-color 0.2s, opacity 0.2s;
+  }
+  #prev-btn:disabled, #next-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Estilos específicos para la vista de lista */
+  .list-view-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb; /* tailwind border-gray-200 */
+    border-radius: 0;
+    box-shadow: none;
+    transition: background-color 0.15s;
+  }
+  .list-view-item:hover {
+    background-color: #f9fafb; /* tailwind bg-gray-50 */
+  }
+  .list-view-item .thumb {
+    width: 3rem; /* Miniatura pequeña */
+    height: 3rem;
+    flex-shrink: 0;
+    margin-right: 1rem;
+    border-radius: 0.25rem;
+  }
+  .list-view-item .meta-info {
+    flex-grow: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+</style>
+</head>
+<body data-theme="light" class="min-h-screen text-gray-800">
+
+<div class="fixed-header">
+  <header class="p-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold" style="color:var(--accent)">Álbum Multimedia Local</h1>
+      <p class="text-sm text-gray-500">Carga carpetas locales, vista rápida y filtrado. Optimizado para carpetas grandes.</p>
+    </div>
+
+    <div class="w-full md:w-auto flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+      <input id="file-input" webkitdirectory multiple type="file" class="border rounded-md p-2 md:w-96" aria-label="Selecciona carpeta">
+
+      <div class="flex gap-2 items-center">
+        <button id="toggle-view" class="px-3 py-2 rounded-md border font-semibold">Lista</button> 
+        <button id="theme-toggle" class="px-3 py-2 rounded-md border">🌙</button>
+      </div>
+
+    </div>
+
+  </header>
+
+  <div class="p-4 md:px-8 border-t flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex gap-3 items-center flex-wrap">
+      
+      <div class="flex items-center gap-2">
+        <select id="type-filter" class="px-3 py-2 border rounded-md">
+          <option value="all">Todos</option>
+          <option value="photo">Fotos</option>
+          <option value="video">Videos</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="size-filter" class="px-3 py-2 border rounded-md">
+          <option value="any">Tamaño (cualquiera)</option>
+          <option value="tiny">< 1 MB</option>
+          <option value="medium">> 10 MB</option>
+          <option value="large">> 100 MB</option>
+          <option value="xl">> 500 MB</option>
+          <option value="xxl">> 1 GB</option>
+        </select>
+
+        <select id="date-filter" class="px-3 py-2 border rounded-md">
+          <option value="any">Fecha (cualquiera)</option>
+          <option value="today">Hoy</option>
+          <option value="week">Esta semana</option>
+          <option value="month">Este mes</option>
+          <option value="6months">Últimos 6 meses</option>
+          <option value="thisYear">Este año</option>
+          <option value="lastYear">El año pasado</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <input id="search-input" placeholder="Buscar por nombre..." class="px-3 py-2 border rounded-md" />
+        <button id="export-csv" class="px-3 py-2 rounded-md border">Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div id="folder-stats" class="text-sm text-gray-600">Archivos: 0 • Tamaño: 0 Bytes</div>
+      <div id="cleanup-suggest" class="text-sm hidden text-red-600 font-semibold">¡Carpeta grande detectada!</div>
+    </div>
+  </div>
+</div>
+
+<div class="month-indicator hidden" id="month-indicator"><span id="month-text" class="font-semibold"></span></div>
+
+<div id="loading" class="text-center py-8 hidden"><div class="spinner"></div><div class="mt-2 text-gray-500">Procesando...</div></div>
+
+<main id="gallery-container" class="p-4 space-y-8"></main>
+
+<div id="viewer-modal" class="hidden fixed inset-0 z-70 bg-black bg-opacity-90 flex items-center justify-center p-4" onclick="hideViewer()">
+  <div class="bg-white rounded-lg max-w-6xl w-full overflow-hidden flex relative" onclick="event.stopPropagation()">
+    
+    <button id="prev-btn" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gray-700 text-white p-3 rounded-full opacity-70 hover:opacity-100 z-75 disabled:opacity-30 disabled:cursor-not-allowed" onclick="navigateViewer(-1)">◀</button>
+    <button id="next-btn" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gray-700 text-white p-3 rounded-full opacity-70 hover:opacity-100 z-75 disabled:opacity-30 disabled:cursor-not-allowed" onclick="navigateViewer(1)">▶</button>
+
+    <div class="w-full md:w-4/5 bg-gray-900 p-4 flex items-center justify-center" id="viewer-media-area"></div>
+    <div class="p-4 md:w-1/5">
+      <h3 class="font-bold text-lg">Detalles</h3>
+      
+      <p class="text-sm text-gray-600 mt-2">Archivo <span id="v-index"></span> de <span id="v-total"></span></p>
+      <hr class="my-2" />
+      
+      <p class="text-sm text-gray-600 mt-2">Tipo: <span id="v-type"></span></p>
+      <p class="text-sm text-gray-600 mt-2">Fecha: <span id="v-date"></span></p>
+      <p class="text-sm text-gray-600 mt-2">Ruta: <span id="v-path"></span></p>
+      <p class="text-sm text-gray-600 mt-2">Tamaño: <span id="v-size"></span></p>
+      <div class="mt-4"><button onclick="hideViewer()" class="px-3 py-2 bg-red-500 text-white rounded-md">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('file-input');
+const gallery = document.getElementById('gallery-container');
+const loading = document.getElementById('loading');
+const folderStats = document.getElementById('folder-stats');
+const cleanupSuggest = document.getElementById('cleanup-suggest');
+const monthIndicator = document.getElementById('month-indicator');
+const monthText = document.getElementById('month-text');
+const typeFilter = document.getElementById('type-filter'); 
+
+let items = []; 
+let activeItems = []; // Lista de items filtrados y ordenados
+let currentActiveIndex = -1; // Índice del archivo actual en la lista activa
+let observer = null;
+let theme = 'light';
+let viewMode = 'grid'; // Inicializado en 'grid'
+let rootFolderName = 'Carpeta seleccionada'; 
+
+const ONE_MB = 1024 * 1024;
+const ONE_GB = ONE_MB * 1024;
+
+function humanBytes(bytes,dec=2){ if(bytes===0) return '0 Bytes'; const k=1024; const i=Math.floor(Math.log(bytes)/Math.log(k)); return parseFloat((bytes/Math.pow(k,i)).toFixed(dec)) + ' ' + ['Bytes','KB','MB','GB','TB'][i]; }
+
+function parseDateFromFile(file){ 
+  const d = new Date(file.lastModified);
+  if(!isNaN(d)){
+    return {iso: d.toISOString(), date: d.toISOString().slice(0,10), year: d.getFullYear().toString(), month: String(d.getMonth()+1).padStart(2,'0')}
+  }
+  return {iso:'',date:'Sin Fecha',year:'Sin Fecha',month:null}
+}
+
+async function generateVideoThumb(file){
+  return new Promise((resolve)=>{
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted=true; video.playsInline=true;
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.onloadedmetadata = () => {
+      try{ video.currentTime = Math.min(0.5, video.duration/10); }catch(e){ video.currentTime = 0.1 }
+    }
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(video.videoWidth, 640);
+      canvas.height = Math.min(video.videoHeight, 360);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const data = canvas.toDataURL('image/jpeg');
+      URL.revokeObjectURL(url);
+      resolve(data);
+    }
+    video.onerror = () => { URL.revokeObjectURL(url); resolve('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect fill="#ccc" width="100%" height="100%"/></svg>') }
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); resolve('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect fill="#ddd" width="100%" height="100%"/></svg>') }catch(e){} },4000);
+  })
+}
+
+function revokeIfExists(obj){ if(obj){ try{ URL.revokeObjectURL(obj) }catch(e){} } }
+
+function clearGalleryAndRevoke(){ 
+  items.forEach(it=>{ revokeIfExists(it.blobUrlThumb); revokeIfExists(it.blobUrlFull); })
+  gallery.innerHTML='';
+  items=[];
+  activeItems=[]; 
+  currentActiveIndex = -1;
+  if(observer){ observer.disconnect(); observer=null }
+}
+
+function updateFolderStats(){ const count = items.length; const total = items.reduce((s,i)=>s+i.size,0); folderStats.textContent = `Archivos: ${count} • Tamaño: ${humanBytes(total)}`; if(total>ONE_GB){ cleanupSuggest.classList.remove('hidden'); cleanupSuggest.textContent = 'Carpeta grande detectada — considera limpiar archivos antiguos (>1GB)'; } else { cleanupSuggest.classList.add('hidden') } }
+
+// Inicializa el Observer una sola vez
+function initializeObserver() {
+    if (observer) return;
+
+    observer = new IntersectionObserver(async (entries) => {
+        for (const ent of entries) {
+            if (ent.isIntersecting) {
+                const el = ent.target; 
+                const activeIndex = Number(el.dataset.activeIndex); // Usamos activeIndex
+                const it = activeItems[activeIndex];
+                
+                if (!it) {
+                    observer.unobserve(el);
+                    continue;
+                }
+
+                const imgEl = el.querySelector('img.thumb');
+                
+                // Si la imagen no tiene src, procedemos a cargarla
+                if (!imgEl.src || imgEl.src.startsWith('data:image/svg')) {
+                    imgEl.classList.remove('opacity-0'); 
+
+                    if (it.type === 'photo') {
+                        if (!it.blobUrlThumb) {
+                            it.blobUrlThumb = URL.createObjectURL(it.file);
+                        }
+                        imgEl.src = it.blobUrlThumb;
+                    } else {
+                        // Es video, requiere generar miniatura
+                        if (!it.thumbData) {
+                            const data = await generateVideoThumb(it.file);
+                            it.thumbData = data;
+                        }
+                        imgEl.src = it.thumbData;
+                    }
+                    
+                    // Muestra la imagen una vez cargada y desobserva
+                    imgEl.onload = () => { imgEl.style.opacity = '1'; };
+                }
+
+                observer.unobserve(el);
+            }
+        }
+    }, { rootMargin: '200px' });
+}
+
+function createCard(it, activeIndex){ 
+  const card = document.createElement('article');
+  
+  // APLICACIÓN DE CLASES BASADA EN viewMode
+  if(viewMode === 'grid'){
+    card.className = 'group relative overflow-hidden rounded-lg shadow-md bg-white';
+    card.style.minHeight = '8rem';
+  } else { // 'list'
+    card.className = 'list-view-item relative overflow-hidden rounded-lg shadow-md bg-white hover:bg-gray-50';
+  }
+
+  // Almacenamos el índice en la lista activa para que el Observer y el Visor lo usen
+  card.dataset.activeIndex = activeIndex; 
+  const inner = document.createElement('div'); 
+  inner.className= viewMode === 'grid' ? 'w-full h-full flex flex-col' : 'w-full flex items-center';
+
+  const thumbWrap = document.createElement('div'); 
+  thumbWrap.style.position='relative'; 
+  thumbWrap.className= viewMode === 'grid' ? 'w-full overflow-hidden' : 'w-12 h-12 overflow-hidden flex-shrink-0 mr-4';
+  thumbWrap.style.minHeight= viewMode === 'grid' ? '6rem' : '3rem';
+  
+  const img = document.createElement('img');
+  img.className = viewMode === 'grid' 
+    ? 'thumb w-full h-40 sm:h-44 object-cover opacity-0 transition-opacity'
+    : 'thumb w-12 h-12 object-cover rounded opacity-0 transition-opacity';
+  img.alt = it.path;
+  thumbWrap.appendChild(img);
+  inner.appendChild(thumbWrap);
+
+  const meta = document.createElement('div'); 
+  meta.className = viewMode === 'grid' 
+    ? 'p-2' 
+    : 'meta-info flex-grow flex justify-between items-center';
+  
+  // Contenido de la Metadata
+  const nameElement = document.createElement('div');
+  nameElement.className = viewMode === 'grid' ? 'text-sm font-medium truncate' : 'text-sm font-medium truncate w-3/5';
+  nameElement.textContent = it.path.split('/').slice(-1)[0];
+  
+  const detailsElement = document.createElement('div');
+  detailsElement.className = viewMode === 'grid' ? 'text-xs text-gray-500' : 'text-xs text-gray-500 flex-shrink-0 text-right';
+  detailsElement.textContent = `${it.date} • ${humanBytes(it.size)}`;
+  
+  meta.appendChild(nameElement);
+  meta.appendChild(detailsElement);
+  
+  inner.appendChild(meta);
+  card.appendChild(inner);
+
+  card.addEventListener('dblclick', async ()=>{
+    await openViewer(Number(card.dataset.activeIndex)); 
+  });
+
+  initializeObserver(); // Aseguramos que el observer esté listo
+  observer.observe(card); // Observar la tarjeta para la carga perezosa (lazy loading)
+
+  return card;
+}
+
+async function renderGallery(){ 
+  gallery.innerHTML='';
+  if(items.length===0){ gallery.innerHTML = '<div class="text-center text-gray-500 py-16">No hay archivos. Selecciona una carpeta.</div>'; return }
+
+  // 1. Aplicar filtros y ordenar
+  const active = items.filter(applyFilters);
+  active.sort((a,b)=> (b.year==='Sin Fecha'?0:parseInt(b.year)) - (a.year==='Sin Fecha'?0:parseInt(a.year)) || (b.month||0)-(a.month||0) || new Date(b.iso).getTime()-new Date(a.iso).getTime());
+
+  activeItems = active; // Almacenar la lista activa globalmente para la navegación y el Observer
+
+  if (active.length === 0) {
+    gallery.innerHTML = '<div class="text-center text-gray-500 py-16">No se encontraron archivos con los filtros seleccionados.</div>';
+    return;
+  }
+
+  // Desconectar y reconectar Observer para evitar observar elementos que serán eliminados
+  if(observer){ observer.disconnect() }
+
+  // 2. Agrupar por fecha
+  const grouped = {};
+  active.forEach(it=>{
+    const y = it.year||'Sin Fecha'; const m = it.month||'00'; if(!grouped[y]) grouped[y]={}; if(!grouped[y][m]) grouped[y][m]=[]; grouped[y][m].push(it);
+  });
+
+  // 3. Renderizar grupos y tarjetas
+  for(const year of Object.keys(grouped).sort((a,b)=>{ if(a==='Sin Fecha') return 1; if(b==='Sin Fecha') return -1; return parseInt(b)-parseInt(a) })){
+    const section = document.createElement('section'); section.className='border-l-4 border-gray-200 pl-4';
+    const h = document.createElement('h2'); h.className='text-3xl font-extrabold'; h.textContent = year; section.appendChild(h);
+
+    const months = Object.keys(grouped[year]).sort((a,b)=>parseInt(b)-parseInt(a));
+    for(const month of months){
+      const wrap = document.createElement('div'); wrap.className='mt-4 p-4 bg-white rounded-md shadow-sm';
+      const monthText = (month && month!=='00') ? new Date(`${year}-${month}-01`).toLocaleDateString('es-ES',{month:'long',year:'numeric'}) : 'Fechas varias';
+      const mh = document.createElement('h3'); mh.className='text-xl font-semibold mb-3'; mh.textContent = monthText; wrap.appendChild(mh);
+
+      // APLICACIÓN DE CLASES DE VISTA AQUÍ
+      const grid = document.createElement('div'); 
+      grid.className = viewMode === 'grid' 
+        ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4' 
+        : 'flex flex-col gap-1'; // Clases para la vista de lista
+
+      const list = grouped[year][month];
+      list.forEach((it)=>{
+        // Usamos el índice en la lista activa (activeItems) para el visor
+        const activeIndex = activeItems.indexOf(it); 
+        const card = createCard(it, activeIndex);
+        grid.appendChild(card);
+      });
+
+      wrap.appendChild(grid);
+      section.appendChild(wrap);
+    }
+    gallery.appendChild(section);
+  }
+
+  updateMonthIndicatorOnScroll();
+}
+
+function applyFilters(it){
+  // 1. Text search
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  if(q && !it.path.toLowerCase().includes(q)) return false;
+  
+  // 2. Type filter
+  const typeFilt = typeFilter.value;
+  if(typeFilt !== 'all' && it.type !== typeFilt) return false;
+
+  // 3. Size filter
+  const sizeFilt = document.getElementById('size-filter').value;
+  const ONE_MB = 1024 * 1024;
+  const ONE_GB = ONE_MB * 1024;
+  
+  if(sizeFilt==='tiny' && it.size >= ONE_MB) return false;
+  if(sizeFilt==='medium' && it.size < 10*ONE_MB) return false;
+  if(sizeFilt==='large' && it.size < 100*ONE_MB) return false;
+  if(sizeFilt==='xl' && it.size < 500*ONE_MB) return false;
+  if(sizeFilt==='xxl' && it.size < ONE_GB) return false;
+  
+  // 4. Date filter
+  const dateFilt = document.getElementById('date-filter').value;
+  if(dateFilt!=='any'){
+    const now = new Date(); 
+    const d = new Date(it.iso);
+
+    if (isNaN(d.getTime())) return false; 
+
+    if(dateFilt==='today'){ 
+      if(d.toDateString() !== now.toDateString()) return false 
+    } else if(dateFilt==='week'){ 
+      const diff = (now - d)/(1000*60*60*24); 
+      if(diff>7) return false 
+    } else if(dateFilt==='month'){ 
+      if(d.getMonth()!==now.getMonth() || d.getFullYear()!==now.getFullYear()) return false 
+    } else if(dateFilt==='6months'){
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(now.getMonth() - 6);
+      if (d < sixMonthsAgo) return false;
+    } else if(dateFilt==='thisYear'){
+      if(d.getFullYear() !== now.getFullYear()) return false;
+    } else if(dateFilt==='lastYear'){
+      if(d.getFullYear() !== now.getFullYear() - 1) return false;
+    }
+  }
+  return true;
+}
+
+// Función de navegación (NUEVA)
+function navigateViewer(delta) {
+    let newIndex = currentActiveIndex + delta;
+    if (newIndex >= 0 && newIndex < activeItems.length) {
+        openViewer(newIndex);
+    }
+}
+
+async function openViewer(activeIndex){ // Acepta el índice de la lista activa
+  if (activeIndex < 0 || activeIndex >= activeItems.length) return;
+  
+  currentActiveIndex = activeIndex; // Actualiza el índice global
+  const it = activeItems[activeIndex];
+  
+  const modal = document.getElementById('viewer-modal'); 
+  const area = document.getElementById('viewer-media-area'); 
+  
+  area.innerHTML='';
+  
+  // --- Actualizar detalles ---
+  document.getElementById('v-type').textContent = it.type==='photo' ? 'Foto' : 'Video';
+  document.getElementById('v-date').textContent = it.date;
+  document.getElementById('v-size').textContent = humanBytes(it.size);
+
+  const displayPath = `${rootFolderName}/${it.path}`; 
+  document.getElementById('v-path').textContent = displayPath;
+  
+  // --- Actualizar contador y botones de navegación ---
+  document.getElementById('v-index').textContent = activeIndex + 1;
+  document.getElementById('v-total').textContent = activeItems.length;
+  
+  document.getElementById('prev-btn').disabled = activeIndex === 0;
+  document.getElementById('next-btn').disabled = activeIndex === activeItems.length - 1;
+
+  // --- Renderizar Media ---
+  // Revocar la URL full anterior para liberar memoria
+  items.forEach(i=>{ if(i.blobUrlFull){ URL.revokeObjectURL(i.blobUrlFull); i.blobUrlFull = null } }) 
+
+  if(it.type==='photo'){
+    if(!it.blobUrlFull){ it.blobUrlFull = URL.createObjectURL(it.file) }
+    const img = document.createElement('img'); img.src = it.blobUrlFull; img.style.maxHeight='85vh'; img.style.maxWidth='100%'; img.alt = it.path; area.appendChild(img);
+  } else {
+    if(!it.blobUrlFull){ it.blobUrlFull = URL.createObjectURL(it.file) }
+    const vid = document.createElement('video'); vid.src = it.blobUrlFull; vid.controls = true; vid.autoplay = true; vid.style.maxHeight='85vh'; vid.style.maxWidth='100%'; area.appendChild(vid);
+  }
+  
+  modal.classList.remove('hidden');
+}
+
+function hideViewer(){
+  const modal = document.getElementById('viewer-modal'); modal.classList.add('hidden'); 
+  const area = document.getElementById('viewer-media-area'); const vid = area.querySelector('video'); if(vid) vid.pause(); area.innerHTML=''; 
+  items.forEach(it=>{ if(it.blobUrlFull){ URL.revokeObjectURL(it.blobUrlFull); it.blobUrlFull = null } })
+  currentActiveIndex = -1;
+}
+
+// Handle file selection
+fileInput.addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  if(files.length===0) return;
+  loading.classList.remove('hidden');
+  clearGalleryAndRevoke();
+
+  // 1. CAPTURAR EL NOMBRE DE LA CARPETA RAÍZ
+  if (files.length > 0 && files[0].webkitRelativePath) {
+      rootFolderName = files[0].webkitRelativePath.split('/')[0];
+  } else {
+      rootFolderName = 'Carpeta seleccionada';
+  }
+
+  const media = files.filter(f=> f.type.startsWith('image/') || f.type.startsWith('video/'));
+
+  for(const f of media){
+    const parsed = parseDateFromFile(f);
+    items.push({ file: f, type: f.type.startsWith('image/') ? 'photo' : 'video', size: f.size, path: f.webkitRelativePath || f.name, iso: parsed.iso, date: parsed.date, year: parsed.year, month: parsed.month, blobUrlThumb:null, blobUrlFull:null, thumbData:null });
+  }
+
+  updateFolderStats();
+  await renderGallery();
+  loading.classList.add('hidden');
+  e.target.value='';
+});
+
+// Filters UI: Escucha los eventos 'change' de los selects
+typeFilter.addEventListener('change', renderGallery);
+document.getElementById('size-filter').addEventListener('change',renderGallery);
+document.getElementById('date-filter').addEventListener('change',renderGallery);
+
+// search debounce
+let searchTimer=null; document.getElementById('search-input').addEventListener('input',(e)=>{ clearTimeout(searchTimer); searchTimer=setTimeout(()=>{ renderGallery() },180) });
+
+// export CSV
+document.getElementById('export-csv').addEventListener('click',()=>{
+  if(items.length===0) return alert('No hay archivos para exportar');
+  const rows = [['Nombre','Ruta Relativa','Tipo','Tamaño (bytes)','Fecha ISO']];
+  items.forEach(it=> rows.push([it.path.split('/').slice(-1)[0], it.path, it.type, it.size, it.iso]));
+  const csv = rows.map(r=> r.map(cell=> '"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'lista_multimedia.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+
+// **********************************
+// CAMBIO CLAVE AQUÍ: LÓGICA DE TOGGLE
+// **********************************
+const toggleViewBtn = document.getElementById('toggle-view'); 
+toggleViewBtn.addEventListener('click', async ()=>{
+  viewMode = viewMode==='grid' ? 'list' : 'grid'; 
+  toggleViewBtn.textContent = viewMode==='grid' ? 'Lista' : 'Grid'; // Muestra el MODO al que cambiará
+  
+  // ¡ESENCIAL! Vuelve a dibujar la galería con las nuevas clases de vista
+  if(items.length > 0) {
+      loading.classList.remove('hidden');
+      await renderGallery();
+      loading.classList.add('hidden');
+  }
+});
+// **********************************
+// FIN DEL CAMBIO CLAVE
+// **********************************
+
+
+// theme
+document.getElementById('theme-toggle').addEventListener('click',()=>{
+  theme = theme==='light' ? 'dark' : 'light'; document.body.setAttribute('data-theme', theme); document.getElementById('theme-toggle').textContent = theme==='light' ? '🌙' : '☀️'; });
+
+// Month indicator on scroll: determine which month section is closest to top
+function updateMonthIndicatorOnScroll(){
+  const monthHeaders = Array.from(gallery.querySelectorAll('h3'));
+  if(monthHeaders.length===0){ monthIndicator.classList.add('hidden'); return }
+  monthIndicator.classList.remove('hidden');
+  function onScroll(){
+    const top = window.scrollY + 160; 
+    let current = '';
+    for(const mh of monthHeaders){ const r = mh.getBoundingClientRect(); const absTop = window.scrollY + r.top; if(absTop <= top){ current = mh.textContent } }
+    if(!current) current = monthHeaders[0].textContent;
+    monthText.textContent = current;
+  }
+  onScroll(); window.removeEventListener('scroll',onScroll); window.addEventListener('scroll', onScroll);
+}
+
+// cleanup when leaving page: revoke any remaining blobs
+window.addEventListener('beforeunload',()=>{ items.forEach(it=>{ revokeIfExists(it.blobUrlThumb); revokeIfExists(it.blobUrlFull) }) })
+
+// Small UX: double click empty area to toggle theme (easter)
+document.body.addEventListener('dblclick',(e)=>{ if(e.target===document.body){ document.getElementById('theme-toggle').click() } });
+
+</script>
+</body>
+</html>

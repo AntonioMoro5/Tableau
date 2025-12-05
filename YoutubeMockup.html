@@ -17,10 +17,40 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 .item p { margin: 3px 0; font-size: 0.9em; color: #333; }
 .item input[type="checkbox"] { margin-bottom: 10px; }
 #player-area { margin-top: 30px; background: #222; border-radius: 10px; padding: 20px; text-align: center; }
-#player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: none; }
+#player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: block; }
 #player-area p { color: white; }
 #load-more { margin: 20px auto; display: block; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 #view-toggle { margin-left: 10px; }
+
+/* Modal pantalla completa */
+#fullscreen-modal {
+    display: none;
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+#fullscreen-modal iframe {
+    width: 90%;
+    height: 90%;
+}
+#close-fullscreen {
+    position: absolute;
+    top:10px;
+    right:10px;
+    padding: 10px 15px;
+    font-size: 18px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -51,8 +81,14 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 <div id="results-container">Introduce un artista o álbum para buscar.</div>
 <button id="load-more" style="display:none;" onclick="loadMore()">Cargar más resultados</button>
 
+<!-- Modal pantalla completa -->
+<div id="fullscreen-modal">
+    <iframe id="fullscreen-player" frameborder="0" allowfullscreen></iframe>
+    <button id="close-fullscreen">✖ Cerrar</button>
+</div>
+
 <script>
-const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; // Reemplaza con tu API Key
+const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; 
 const results = document.getElementById("results-container");
 const player = document.getElementById("player");
 const playerArea = document.getElementById("player-area");
@@ -79,14 +115,30 @@ function loadContent(id, type) {
     } else return;
 
     player.src = embedUrl;
-    player.style.display = "block";
     playerArea.querySelector('p').style.display = "none";
 
     player.onerror = () => {
         player.src = "";
-        player.style.display = "none";
         playerArea.querySelector('p').textContent = "Este contenido no se puede reproducir en esta página.";
         playerArea.querySelector('p').style.display = "block";
+    };
+}
+
+function openFullscreen(id, type) {
+    const modal = document.getElementById('fullscreen-modal');
+    const fsPlayer = document.getElementById('fullscreen-player');
+
+    if(type === "youtube#video") {
+        fsPlayer.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&controls=1`;
+    } else if(type === "youtube#playlist") {
+        fsPlayer.src = `https://www.youtube.com/embed/videoseries?list=${id}&autoplay=1&rel=0&controls=1`;
+    } else return;
+
+    modal.style.display = "flex";
+
+    document.getElementById('close-fullscreen').onclick = () => {
+        fsPlayer.src = "";
+        modal.style.display = "none";
     };
 }
 
@@ -143,23 +195,9 @@ function displayResults(items, source) {
             : item.id;
 
         const type = source === "api" ? item.id.kind : item.type || "youtube#video";
-
-        // Fecha publicada
-        const published = source === "api" 
-            ? new Date(item.snippet.publishedAt).toLocaleDateString() 
-            : item.published || "";
-
-        // Imagen
-        const thumbnail = source === "api" 
-            ? item.snippet.thumbnails.medium.url 
-            : item.thumbnail || "https://via.placeholder.com/320x180?text=No+Image";
-
-        // Canal / Artista
-        const channel = source === "api" 
-            ? item.snippet.channelTitle 
-            : item.channel || "";
-
-        // Album
+        const published = source === "api" ? new Date(item.snippet.publishedAt).toLocaleDateString() : item.published || "";
+        const thumbnail = source === "api" ? item.snippet.thumbnails.medium.url : item.thumbnail || "https://via.placeholder.com/320x180?text=No+Image";
+        const channel = source === "api" ? item.snippet.channelTitle : item.channel || "";
         const album = source === "api" ? "" : item.album || "";
 
         const div = document.createElement("div");
@@ -179,13 +217,12 @@ function displayResults(items, source) {
             <p>Canal: ${channel}</p>
             <p>Publicado: ${published}</p>
             <p>Tipo: ${type === "youtube#video" ? "Video" : "Disco/Playlist"}</p>
+            <button onclick="openFullscreen('${id}','${type}')">Pantalla completa</button>
             <p class="status">Sin empezar</p>
         `;
-
         results.appendChild(div);
     });
 }
-
 
 async function loadMore() {
     if(!nextPageToken || sourceSelect.value !== "api") return;
@@ -203,7 +240,6 @@ function exportSelected() {
     const selected = document.querySelectorAll('.select-video:checked');
     if(selected.length === 0) return alert("No seleccionaste ningún video");
 
-    // JSON para modo Local
     const dataLocal = Array.from(selected).map(cb => ({
         title: cb.dataset.title,
         id: cb.dataset.videoId,
@@ -214,10 +250,8 @@ function exportSelected() {
     }));
     localData = dataLocal;
 
-    // JSON para conversión MP3
     const dataMP3 = Array.from(selected).map(cb => cb.dataset.videoId);
 
-    // Descargar JSON Local
     const blobLocal = new Blob([JSON.stringify(dataLocal, null, 2)], {type: "application/json"});
     const urlLocal = URL.createObjectURL(blobLocal);
     const aLocal = document.createElement("a");
@@ -226,7 +260,6 @@ function exportSelected() {
     aLocal.click();
     URL.revokeObjectURL(urlLocal);
 
-    // Descargar JSON para MP3
     const blobMP3 = new Blob([JSON.stringify(dataMP3, null, 2)], {type: "application/json"});
     const urlMP3 = URL.createObjectURL(blobMP3);
     const aMP3 = document.createElement("a");
@@ -237,18 +270,14 @@ function exportSelected() {
 
     alert(`Exportados ${selected.length} items: JSON Local y JSON para conversión MP3.`);
 
-    // Actualizar estados de progreso
     selected.forEach((cb,i) => {
         const status = cb.parentElement.querySelector('.status');
         status.textContent = i === 0 ? 'En proceso' : i === 1 ? 'En curso' : 'Sin empezar';
     });
 }
 
-// Cargar archivo local
 sourceSelect.addEventListener("change", () => {
-    if(sourceSelect.value === "local") {
-        localFileInput.click();
-    }
+    if(sourceSelect.value === "local") localFileInput.click();
 });
 
 localFileInput.addEventListener("change", e => {
@@ -259,7 +288,7 @@ localFileInput.addEventListener("change", e => {
         try {
             localData = JSON.parse(evt.target.result);
             alert(`Archivo local cargado. ${localData.length} items disponibles.`);
-            displayResults(localData, "local"); // Mostrar todos al cargar
+            displayResults(localData, "local");
         } catch(err) {
             alert("Error leyendo el archivo JSON.");
             localData = [];
