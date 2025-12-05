@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador Música YouTube - MP3 Export</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+#search-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
+#search-form input, #search-form button, #search-form select { padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+#search-form button { background: #ff0000; color: white; border: none; cursor: pointer; font-weight: bold; }
+#results-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; display: flex; flex-direction: column; }
+.item:hover { transform: scale(1.03); }
+.item img { width: 100%; border-radius: 6px; cursor: pointer; }
+.item h3 { font-size: 1em; margin: 10px 0 5px; height: 2.8em; overflow: hidden; }
+.item p { margin: 3px 0; font-size: 0.9em; color: #333; }
+.item input[type="checkbox"] { margin-bottom: 10px; }
+.item button { margin-top: 5px; padding: 6px 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.item button:nth-of-type(1) { background: #007bff; color: white; }
+.item button:nth-of-type(2) { background: #28a745; color: white; }
+.item button:nth-of-type(3) { background: #ffc107; color: white; }
+#player-area { margin-top: 30px; background: #222; border-radius: 10px; padding: 20px; text-align: center; }
+#player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: block; }
+#player-area p { color: white; }
+#load-more { margin: 20px auto; display: block; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+#view-toggle { margin-left: 10px; }
+
+/* Modal pantalla completa */
+#fullscreen-modal {
+    display: none;
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+#fullscreen-modal iframe {
+    width: 90%;
+    height: 90%;
+}
+#close-fullscreen {
+    position: absolute;
+    top:10px;
+    right:10px;
+    padding: 10px 15px;
+    font-size: 18px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>🎧 Buscador Música YouTube - MP3 Export</h1>
+
+<div id="search-form">
+    <input type="text" id="query" placeholder="Ej: Coldplay, Queen Greatest Hits...">
+    <button onclick="searchContent()">Buscar</button>
+    <label id="view-toggle">
+        <input type="checkbox" onchange="toggleView(this.checked)"> Lista
+    </label>
+    <select id="source-select">
+        <option value="api">API YouTube</option>
+        <option value="local">Local JSON</option>
+    </select>
+    <label>Desde: <input type="date" id="date-from"></label>
+    <label>Hasta: <input type="date" id="date-to"></label>
+    <button type="button" onclick="applyDateFilter()">Filtrar</button>
+    <button type="button" onclick="resetDateFilter()">Reset Fechas</button>
+</div>
+
+<button onclick="exportSelected()">Exportar Seleccionados (JSON para MP3)</button>
+
+<div id="player-area">
+    <p>Selecciona un video o disco para reproducir aquí.</p>
+    <iframe id="player"></iframe>
+</div>
+
+<h2>Resultados:</h2>
+<div id="results-container">Introduce un artista o álbum para buscar.</div>
+<button id="load-more" style="display:none;" onclick="loadMore()">Cargar más resultados</button>
+
+<!-- Modal pantalla completa -->
+<div id="fullscreen-modal">
+    <iframe id="fullscreen-player" frameborder="0" allowfullscreen></iframe>
+    <button id="close-fullscreen">✖ Cerrar</button>
+</div>
+
+<script>
+const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; 
+const results = document.getElementById("results-container");
+const player = document.getElementById("player");
+const playerArea = document.getElementById("player-area");
+const loadMoreBtn = document.getElementById("load-more");
+const sourceSelect = document.getElementById("source-select");
+
+let nextPageToken = null;
+let currentQuery = "";
+let cardView = true;
+let localData = [];
+
+function toggleView(isList) {
+    cardView = !isList;
+    results.style.display = cardView ? 'grid' : 'block';
+}
+
+function loadContent(id, type) {
+    let embedUrl = type === "youtube#video"
+        ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&controls=1`
+        : `https://www.youtube.com/embed/videoseries?list=${id}&autoplay=1&rel=0&controls=1`;
+
+    player.src = embedUrl;
+    playerArea.querySelector('p').style.display = "none";
+    player.onerror = () => {
+        player.src = "";
+        playerArea.querySelector('p').textContent = "Este contenido no se puede reproducir en esta página.";
+        playerArea.querySelector('p').style.display = "block";
+    };
+}
+
+function openFullscreen(id, type) {
+    const modal = document.getElementById('fullscreen-modal');
+    const fsPlayer = document.getElementById('fullscreen-player');
+    fsPlayer.src = type === "youtube#video"
+        ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&controls=1`
+        : `https://www.youtube.com/embed/videoseries?list=${id}&autoplay=1&rel=0&controls=1`;
+    modal.style.display = "flex";
+    document.getElementById('close-fullscreen').onclick = () => {
+        fsPlayer.src = "";
+        modal.style.display = "none";
+    };
+}
+
+async function fetchYouTube(query, pageToken = "") {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=20&q=${encodeURIComponent(query)}&key=${API_KEY}&pageToken=${pageToken}`;
+    try {
+        const res = await fetch(url);
+        return await res.json();
+    } catch(err) {
+        console.error(err);
+        return null;
+    }
+}
+
+async function searchContent() {
+    const query = document.getElementById("query").value.trim();
+    if(!query) return;
+
+    currentQuery = query;
+    nextPageToken = null;
+    results.innerHTML = "Cargando...";
+    loadMoreBtn.style.display = "none";
+
+    const dateFrom = document.getElementById("date-from").value;
+    const dateTo = document.getElementById("date-to").value;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo) : null;
+
+    if(sourceSelect.value === "api") {
+        const data = await fetchYouTube(query);
+        if(!data?.items?.length) {
+            results.innerHTML = `<p>No se encontraron resultados para "${query}".</p>`;
+            return;
+        }
+
+        const itemsToDisplay = data.items.filter(item => {
+            const pubDate = new Date(item.snippet.publishedAt);
+            if(from && pubDate < from) return false;
+            if(to && pubDate > to) return false;
+            return true;
+        });
+
+        if(!itemsToDisplay.length) {
+            results.innerHTML = `<p>No hay resultados dentro del rango de fechas seleccionado.</p>`;
+            return;
+        }
+
+        displayResults(itemsToDisplay, "api");
+        nextPageToken = data.nextPageToken || null;
+        loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+
+    } else if(sourceSelect.value === "local") {
+        if(!localData.length) return alert("No hay datos locales cargados.");
+        const filtered = localData.filter(item => item.title.toLowerCase().includes(query.toLowerCase()));
+        if(!filtered.length) {
+            results.innerHTML = `<p>No se encontraron resultados para "${query}" en local.</p>`;
+            return;
+        }
+        displayResults(filtered, "local");
+    }
+}
+
+function displayResults(items, source) {
+    results.innerHTML = "";
+    items.forEach(item => {
+        const id = source === "api"
+            ? (item.id.kind === "youtube#video" ? item.id.videoId : item.id.playlistId)
+            : item.id;
+
+        const type = source === "api" ? item.id.kind : item.type || "youtube#video";
+        const title = item.title && item.title !== "undefined" ? item.title : "Sin título";
+        const published = source === "api" ? new Date(item.snippet.publishedAt).toLocaleDateString() : item.published || "";
+        const thumbnail = source === "api" ? item.snippet.thumbnails?.medium?.url : item.thumbnail || "";
+        const channel = source === "api" ? item.snippet.channelTitle : item.channel || "";
+        const duration = item.duration || "";
+
+        const div = document.createElement("div");
+        div.className = "item";
+        div.style.display = cardView ? 'flex' : 'block';
+        div.innerHTML = `
+            <input type="checkbox" class="select-video"
+                data-title="${title}"
+                data-video-id="${id}"
+                data-channel="${channel}"
+                data-type="${type}">
+            <img src="${thumbnail}" alt="${title}" onclick="loadContent('${id}','${type}')">
+            <h3>${title}</h3>
+            <p>Canal: ${channel}</p>
+            <p>Publicado: ${published}</p>
+            <p>Duración: ${duration}</p>
+            <p>Tipo: ${type === "youtube#video" ? "Video" : "Disco/Playlist"}</p>
+            <button onclick="openFullscreen('${id}','${type}')">Pantalla completa</button>
+            <button onclick="downloadMP3('${id}','${type}')">📥 Descargar MP3</button>
+            <p class="status">Sin empezar</p>
+        `;
+        results.appendChild(div);
+    });
+}
+
+async function loadMore() {
+    if(!nextPageToken || sourceSelect.value !== "api") return;
+    const data = await fetchYouTube(currentQuery, nextPageToken);
+    if(!data?.items?.length) { loadMoreBtn.style.display = "none"; return; }
+    displayResults(data.items, "api");
+    nextPageToken = data.nextPageToken || null;
+    loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+}
+
+function exportSelected() {
+    const selected = document.querySelectorAll('.select-video:checked');
+    if(!selected.length) return alert("No seleccionaste ningún video");
+
+    const exportData = Array.from(selected).map(cb => ({
+        id: cb.dataset.videoId,
+        title: cb.dataset.title,
+        channel: cb.dataset.channel,
+        type: cb.dataset.type
+    }));
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "youtube_mp3.json";
+    a.click();
+    URL.revokeObjectURL(url);
+
+    alert(`Exportados ${selected.length} items para conversión a MP3.`);
+}
+
+// Función nueva para mostrar enlace de descarga MP3
+function downloadMP3(id, type) {
+    const url = type === "youtube#video"
+        ? `https://www.youtube.com/watch?v=${id}`
+        : `https://www.youtube.com/playlist?list=${id}`;
+    
+    window.open(url, "_blank");
+    alert("Usa esta URL con yt-dlp o un convertidor online para descargar MP3:\n" + url);
+}
+
+document.getElementById("query").addEventListener("keypress", e => {
+    if(e.key === "Enter") searchContent();
+});
+
+function applyDateFilter() { searchContent(); }
+function resetDateFilter() {
+    document.getElementById("date-from").value = "";
+    document.getElementById("date-to").value = "";
+    searchContent();
+}
+</script>
+</body>
+</html>
