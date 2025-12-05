@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador Música YouTube con Filtro de Fecha</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+#search-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
+#search-form input, #search-form button { padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+#search-form button { background: #ff0000; color: white; border: none; cursor: pointer; font-weight: bold; }
+#results-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
+.item:hover { transform: scale(1.03); }
+.item img { width: 100%; border-radius: 6px; }
+.item h3 { font-size: 1em; margin: 10px 0 5px; height: 2.8em; overflow: hidden; }
+.item p { margin: 3px 0; font-size: 0.9em; color: #333; }
+#player-area { margin-top: 30px; background: #222; border-radius: 10px; padding: 20px; text-align: center; }
+#player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: none; }
+#player-area p { color: white; }
+#load-more { margin: 20px auto; display: block; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>🎧 Buscador de Música (YouTube) con Filtro de Fecha</h1>
+
+<div id="search-form">
+    <input type="text" id="query" placeholder="Ej: Coldplay, Queen Greatest Hits...">
+    <label>Desde: <input type="date" id="date-from"></label>
+    <label>Hasta: <input type="date" id="date-to"></label>
+    <button onclick="searchContent()">Buscar</button>
+</div>
+
+<div id="player-area">
+    <p>Selecciona un video o disco para reproducir aquí.</p>
+    <iframe id="player"></iframe>
+</div>
+
+<h2>Resultados:</h2>
+<div id="results-container">Introduce un artista o álbum para buscar.</div>
+<button id="load-more" style="display:none;" onclick="loadMore()">Cargar más resultados</button>
+
+<script>
+const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; 
+const results = document.getElementById("results-container");
+const player = document.getElementById("player");
+const playerArea = document.getElementById("player-area");
+const loadMoreBtn = document.getElementById("load-more");
+
+let nextPageToken = null;
+let currentQuery = "";
+let publishedAfter = "";
+let publishedBefore = "";
+
+function loadContent(id, type) {
+    let embedUrl = "";
+    if(type === "youtube#video") {
+        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&controls=1`;
+    } else if(type === "youtube#playlist") {
+        embedUrl = `https://www.youtube.com/embed/videoseries?list=${id}&autoplay=1&rel=0&controls=1`;
+    } else return;
+
+    player.src = embedUrl;
+    player.style.display = "block";
+    playerArea.querySelector('p').style.display = "none";
+
+    player.onerror = () => {
+        player.src = "";
+        player.style.display = "none";
+        playerArea.querySelector('p').textContent = "Este contenido no se puede reproducir en esta página.";
+        playerArea.querySelector('p').style.display = "block";
+    };
+}
+
+async function fetchYouTube(query, pageToken = "") {
+    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=20&q=${encodeURIComponent(query)}&key=${API_KEY}&pageToken=${pageToken}`;
+    if(publishedAfter) url += `&publishedAfter=${publishedAfter}`;
+    if(publishedBefore) url += `&publishedBefore=${publishedBefore}`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        return data;
+    } catch(err) {
+        console.error(err);
+        return null;
+    }
+}
+
+async function searchContent() {
+    const query = document.getElementById("query").value.trim();
+    if(!query) return;
+
+    const fromDate = document.getElementById("date-from").value;
+    const toDate = document.getElementById("date-to").value;
+
+    publishedAfter = fromDate ? fromDate + "T00:00:00Z" : "";
+    publishedBefore = toDate ? toDate + "T23:59:59Z" : "";
+
+    currentQuery = query;
+    nextPageToken = null;
+    results.innerHTML = "Cargando...";
+    loadMoreBtn.style.display = "none";
+
+    const data = await fetchYouTube(query);
+    if(!data || !data.items || data.items.length === 0) {
+        results.innerHTML = `<p>No se encontraron resultados para "${query}".</p>`;
+        return;
+    }
+
+    displayResults(data.items);
+    nextPageToken = data.nextPageToken || null;
+    loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+}
+
+function displayResults(items) {
+    items.sort((a,b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+
+    items.forEach(item => {
+        const id = item.id.kind === "youtube#video" ? item.id.videoId : item.id.playlistId;
+        const type = item.id.kind;
+        const published = new Date(item.snippet.publishedAt).toLocaleDateString();
+
+        const div = document.createElement("div");
+        div.className = "item";
+        div.onclick = () => loadContent(id, type);
+
+        div.innerHTML = `
+            <img src="${item.snippet.thumbnails.medium.url}" alt="${item.snippet.title}">
+            <h3>${item.snippet.title}</h3>
+            <p>Canal: ${item.snippet.channelTitle}</p>
+            <p>Publicado: ${published}</p>
+            <p>Tipo: ${type === "youtube#video" ? "Video" : "Disco/Playlist"}</p>
+        `;
+        results.appendChild(div);
+    });
+}
+
+async function loadMore() {
+    if(!nextPageToken) return;
+
+    const data = await fetchYouTube(currentQuery, nextPageToken);
+    if(!data || !data.items || data.items.length === 0) {
+        loadMoreBtn.style.display = "none";
+        return;
+    }
+
+    displayResults(data.items);
+    nextPageToken = data.nextPageToken || null;
+    loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+}
+
+document.getElementById("query").addEventListener("keypress", e => {
+    if(e.key === "Enter") searchContent();
+});
+</script>
+
+</body>
+</html>
