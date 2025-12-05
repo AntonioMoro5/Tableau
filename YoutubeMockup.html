@@ -3,35 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Buscador Música YouTube con Filtro de Fecha</title>
+<title>Buscador Música YouTube - Selección y Export</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 #search-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
 #search-form input, #search-form button { padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
 #search-form button { background: #ff0000; color: white; border: none; cursor: pointer; font-weight: bold; }
 #results-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-.item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
+.item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; display: flex; flex-direction: column; }
 .item:hover { transform: scale(1.03); }
-.item img { width: 100%; border-radius: 6px; }
+.item img { width: 100%; border-radius: 6px; cursor: pointer; }
 .item h3 { font-size: 1em; margin: 10px 0 5px; height: 2.8em; overflow: hidden; }
 .item p { margin: 3px 0; font-size: 0.9em; color: #333; }
+.item input[type="checkbox"] { margin-bottom: 10px; }
 #player-area { margin-top: 30px; background: #222; border-radius: 10px; padding: 20px; text-align: center; }
 #player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: none; }
 #player-area p { color: white; }
+#controls { margin-bottom: 20px; }
 #load-more { margin: 20px auto; display: block; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+#view-toggle { margin-left: 10px; }
 </style>
 </head>
 <body>
 
-<h1>🎧 Buscador de Música (YouTube) con Filtro de Fecha</h1>
+<h1>🎧 Buscador Música YouTube - Selección y Export</h1>
 
 <div id="search-form">
     <input type="text" id="query" placeholder="Ej: Coldplay, Queen Greatest Hits...">
-    <label>Desde: <input type="date" id="date-from"></label>
-    <label>Hasta: <input type="date" id="date-to"></label>
     <button onclick="searchContent()">Buscar</button>
+    <label id="view-toggle">
+        <input type="checkbox" onchange="toggleView(this.checked)"> Lista
+    </label>
 </div>
-
+<button onclick="exportSelected()">Exportar Seleccionados (JSON)</button>
 <div id="player-area">
     <p>Selecciona un video o disco para reproducir aquí.</p>
     <iframe id="player"></iframe>
@@ -41,8 +45,9 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 <div id="results-container">Introduce un artista o álbum para buscar.</div>
 <button id="load-more" style="display:none;" onclick="loadMore()">Cargar más resultados</button>
 
+
 <script>
-const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; 
+const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; // Reemplaza con tu API Key
 const results = document.getElementById("results-container");
 const player = document.getElementById("player");
 const playerArea = document.getElementById("player-area");
@@ -50,8 +55,12 @@ const loadMoreBtn = document.getElementById("load-more");
 
 let nextPageToken = null;
 let currentQuery = "";
-let publishedAfter = "";
-let publishedBefore = "";
+let cardView = true;
+
+function toggleView(isList) {
+    cardView = !isList;
+    results.style.display = cardView ? 'grid' : 'block';
+}
 
 function loadContent(id, type) {
     let embedUrl = "";
@@ -75,9 +84,6 @@ function loadContent(id, type) {
 
 async function fetchYouTube(query, pageToken = "") {
     let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,playlist&maxResults=20&q=${encodeURIComponent(query)}&key=${API_KEY}&pageToken=${pageToken}`;
-    if(publishedAfter) url += `&publishedAfter=${publishedAfter}`;
-    if(publishedBefore) url += `&publishedBefore=${publishedBefore}`;
-
     try {
         const res = await fetch(url);
         const data = await res.json();
@@ -91,12 +97,6 @@ async function fetchYouTube(query, pageToken = "") {
 async function searchContent() {
     const query = document.getElementById("query").value.trim();
     if(!query) return;
-
-    const fromDate = document.getElementById("date-from").value;
-    const toDate = document.getElementById("date-to").value;
-
-    publishedAfter = fromDate ? fromDate + "T00:00:00Z" : "";
-    publishedBefore = toDate ? toDate + "T23:59:59Z" : "";
 
     currentQuery = query;
     nextPageToken = null;
@@ -124,14 +124,16 @@ function displayResults(items) {
 
         const div = document.createElement("div");
         div.className = "item";
-        div.onclick = () => loadContent(id, type);
+        div.style.display = cardView ? 'flex' : 'block';
 
         div.innerHTML = `
-            <img src="${item.snippet.thumbnails.medium.url}" alt="${item.snippet.title}">
+            <input type="checkbox" class="select-video" data-title="${item.snippet.title}" data-video-id="${id}">
+            <img src="${item.snippet.thumbnails.medium.url}" alt="${item.snippet.title}" onclick="loadContent('${id}','${type}')">
             <h3>${item.snippet.title}</h3>
             <p>Canal: ${item.snippet.channelTitle}</p>
             <p>Publicado: ${published}</p>
             <p>Tipo: ${type === "youtube#video" ? "Video" : "Disco/Playlist"}</p>
+            <p class="status">Sin empezar</p>
         `;
         results.appendChild(div);
     });
@@ -149,6 +151,32 @@ async function loadMore() {
     displayResults(data.items);
     nextPageToken = data.nextPageToken || null;
     loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+}
+
+function exportSelected() {
+    const selected = document.querySelectorAll('.select-video:checked');
+    if(selected.length === 0) return alert("No seleccionaste ningún video");
+
+    const data = Array.from(selected).map(cb => ({
+        title: cb.dataset.title,
+        id: cb.dataset.videoId
+    }));
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "youtube_selected.json";
+    a.click();
+    URL.revokeObjectURL(url);
+
+    alert(`Has exportado ${data.length} IDs para descargar offline.`);
+
+    // Actualizar estados de progreso
+    selected.forEach((cb,i) => {
+        const status = cb.parentElement.querySelector('.status');
+        status.textContent = i === 0 ? 'En proceso' : i === 1 ? 'En curso' : 'Sin empezar';
+    });
 }
 
 document.getElementById("query").addEventListener("keypress", e => {
