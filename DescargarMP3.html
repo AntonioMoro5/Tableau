@@ -286,6 +286,16 @@ function resetDateFilter() {
     document.getElementById("date-to").value = "";
     searchContent();
 }
+// Scroll infinito
+window.addEventListener('scroll', () => {
+    // Detecta si estamos cerca del fondo de la página
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+        // Solo carga si hay más resultados y estamos usando API
+        if (nextPageToken && sourceSelect.value === "api") {
+            loadMore();
+        }
+    }
+});
 </script>
 </body>
 </html>
