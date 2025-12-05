@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Buscador Música YouTube - Selección y Export</title>
+<title>Buscador Música YouTube - API / Local</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 #search-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
-#search-form input, #search-form button { padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+#search-form input, #search-form button, #search-form select { padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
 #search-form button { background: #ff0000; color: white; border: none; cursor: pointer; font-weight: bold; }
 #results-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 .item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; display: flex; flex-direction: column; }
@@ -19,14 +19,13 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 #player-area { margin-top: 30px; background: #222; border-radius: 10px; padding: 20px; text-align: center; }
 #player-area iframe { width: 100%; max-width: 700px; height: 400px; border: none; display: none; }
 #player-area p { color: white; }
-#controls { margin-bottom: 20px; }
 #load-more { margin: 20px auto; display: block; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 #view-toggle { margin-left: 10px; }
 </style>
 </head>
 <body>
 
-<h1>🎧 Buscador Música YouTube - Selección y Export</h1>
+<h1>🎧 Buscador Música YouTube - API / Local</h1>
 
 <div id="search-form">
     <input type="text" id="query" placeholder="Ej: Coldplay, Queen Greatest Hits...">
@@ -34,8 +33,15 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
     <label id="view-toggle">
         <input type="checkbox" onchange="toggleView(this.checked)"> Lista
     </label>
+    <select id="source-select">
+        <option value="api">API YouTube</option>
+        <option value="local">Local JSON</option>
+    </select>
+    <input type="file" id="local-file" style="display:none;" accept=".json">
 </div>
+
 <button onclick="exportSelected()">Exportar Seleccionados (JSON)</button>
+
 <div id="player-area">
     <p>Selecciona un video o disco para reproducir aquí.</p>
     <iframe id="player"></iframe>
@@ -45,17 +51,19 @@ body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
 <div id="results-container">Introduce un artista o álbum para buscar.</div>
 <button id="load-more" style="display:none;" onclick="loadMore()">Cargar más resultados</button>
 
-
 <script>
 const API_KEY = "AIzaSyDoLnY4t6jHI2OFj7o14ivwXCkjp5UqHMM"; // Reemplaza con tu API Key
 const results = document.getElementById("results-container");
 const player = document.getElementById("player");
 const playerArea = document.getElementById("player-area");
 const loadMoreBtn = document.getElementById("load-more");
+const sourceSelect = document.getElementById("source-select");
+const localFileInput = document.getElementById("local-file");
 
 let nextPageToken = null;
 let currentQuery = "";
 let cardView = true;
+let localData = [];
 
 function toggleView(isList) {
     cardView = !isList;
@@ -103,52 +111,90 @@ async function searchContent() {
     results.innerHTML = "Cargando...";
     loadMoreBtn.style.display = "none";
 
-    const data = await fetchYouTube(query);
-    if(!data || !data.items || data.items.length === 0) {
-        results.innerHTML = `<p>No se encontraron resultados para "${query}".</p>`;
-        return;
+    if(sourceSelect.value === "api") {
+        const data = await fetchYouTube(query);
+        if(!data || !data.items || data.items.length === 0) {
+            results.innerHTML = `<p>No se encontraron resultados para "${query}".</p>`;
+            return;
+        }
+        displayResults(data.items, "api");
+        nextPageToken = data.nextPageToken || null;
+        loadMoreBtn.style.display = nextPageToken ? "block" : "none";
+    } else if(sourceSelect.value === "local") {
+        if(localData.length === 0) return alert("No hay datos locales cargados.");
+        const filtered = localData.filter(item =>
+            item.title.toLowerCase().includes(query.toLowerCase()) ||
+            (item.album && item.album.toLowerCase().includes(query.toLowerCase()))
+        );
+        if(filtered.length === 0) {
+            results.innerHTML = `<p>No se encontraron resultados para "${query}" en local.</p>`;
+            return;
+        }
+        displayResults(filtered, "local");
     }
-
-    displayResults(data.items);
-    nextPageToken = data.nextPageToken || null;
-    loadMoreBtn.style.display = nextPageToken ? "block" : "none";
 }
 
-function displayResults(items) {
-    items.sort((a,b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+function displayResults(items, source) {
+    results.innerHTML = "";
 
     items.forEach(item => {
-        const id = item.id.kind === "youtube#video" ? item.id.videoId : item.id.playlistId;
-        const type = item.id.kind;
-        const published = new Date(item.snippet.publishedAt).toLocaleDateString();
+        const id = source === "api" 
+            ? (item.id.kind === "youtube#video" ? item.id.videoId : item.id.playlistId) 
+            : item.id;
+
+        const type = source === "api" ? item.id.kind : item.type || "youtube#video";
+
+        // Fecha publicada
+        const published = source === "api" 
+            ? new Date(item.snippet.publishedAt).toLocaleDateString() 
+            : item.published || "";
+
+        // Imagen
+        const thumbnail = source === "api" 
+            ? item.snippet.thumbnails.medium.url 
+            : item.thumbnail || "https://via.placeholder.com/320x180?text=No+Image";
+
+        // Canal / Artista
+        const channel = source === "api" 
+            ? item.snippet.channelTitle 
+            : item.channel || "";
+
+        // Album
+        const album = source === "api" ? "" : item.album || "";
 
         const div = document.createElement("div");
         div.className = "item";
         div.style.display = cardView ? 'flex' : 'block';
 
         div.innerHTML = `
-            <input type="checkbox" class="select-video" data-title="${item.snippet.title}" data-video-id="${id}">
-            <img src="${item.snippet.thumbnails.medium.url}" alt="${item.snippet.title}" onclick="loadContent('${id}','${type}')">
-            <h3>${item.snippet.title}</h3>
-            <p>Canal: ${item.snippet.channelTitle}</p>
+            <input type="checkbox" class="select-video"
+                data-title="${item.title}"
+                data-video-id="${id}"
+                data-album="${album}"
+                data-thumbnail="${thumbnail}"
+                data-channel="${channel}"
+                data-published="${published}">
+            <img src="${thumbnail}" alt="${item.title}" onclick="loadContent('${id}','${type}')">
+            <h3>${item.title}${album ? ' - '+album : ''}</h3>
+            <p>Canal: ${channel}</p>
             <p>Publicado: ${published}</p>
             <p>Tipo: ${type === "youtube#video" ? "Video" : "Disco/Playlist"}</p>
             <p class="status">Sin empezar</p>
         `;
+
         results.appendChild(div);
     });
 }
 
-async function loadMore() {
-    if(!nextPageToken) return;
 
+async function loadMore() {
+    if(!nextPageToken || sourceSelect.value !== "api") return;
     const data = await fetchYouTube(currentQuery, nextPageToken);
     if(!data || !data.items || data.items.length === 0) {
         loadMoreBtn.style.display = "none";
         return;
     }
-
-    displayResults(data.items);
+    displayResults(data.items, "api");
     nextPageToken = data.nextPageToken || null;
     loadMoreBtn.style.display = nextPageToken ? "block" : "none";
 }
@@ -157,20 +203,39 @@ function exportSelected() {
     const selected = document.querySelectorAll('.select-video:checked');
     if(selected.length === 0) return alert("No seleccionaste ningún video");
 
-    const data = Array.from(selected).map(cb => ({
+    // JSON para modo Local
+    const dataLocal = Array.from(selected).map(cb => ({
         title: cb.dataset.title,
-        id: cb.dataset.videoId
+        id: cb.dataset.videoId,
+        album: cb.dataset.album || "",
+        thumbnail: cb.dataset.thumbnail || cb.parentElement.querySelector("img").src,
+        channel: cb.dataset.channel || "",
+        published: cb.dataset.published || ""
     }));
+    localData = dataLocal;
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "youtube_selected.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    // JSON para conversión MP3
+    const dataMP3 = Array.from(selected).map(cb => cb.dataset.videoId);
 
-    alert(`Has exportado ${data.length} IDs para descargar offline.`);
+    // Descargar JSON Local
+    const blobLocal = new Blob([JSON.stringify(dataLocal, null, 2)], {type: "application/json"});
+    const urlLocal = URL.createObjectURL(blobLocal);
+    const aLocal = document.createElement("a");
+    aLocal.href = urlLocal;
+    aLocal.download = "youtube_local.json";
+    aLocal.click();
+    URL.revokeObjectURL(urlLocal);
+
+    // Descargar JSON para MP3
+    const blobMP3 = new Blob([JSON.stringify(dataMP3, null, 2)], {type: "application/json"});
+    const urlMP3 = URL.createObjectURL(blobMP3);
+    const aMP3 = document.createElement("a");
+    aMP3.href = urlMP3;
+    aMP3.download = "youtube_mp3.json";
+    aMP3.click();
+    URL.revokeObjectURL(urlMP3);
+
+    alert(`Exportados ${selected.length} items: JSON Local y JSON para conversión MP3.`);
 
     // Actualizar estados de progreso
     selected.forEach((cb,i) => {
@@ -178,6 +243,30 @@ function exportSelected() {
         status.textContent = i === 0 ? 'En proceso' : i === 1 ? 'En curso' : 'Sin empezar';
     });
 }
+
+// Cargar archivo local
+sourceSelect.addEventListener("change", () => {
+    if(sourceSelect.value === "local") {
+        localFileInput.click();
+    }
+});
+
+localFileInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            localData = JSON.parse(evt.target.result);
+            alert(`Archivo local cargado. ${localData.length} items disponibles.`);
+            displayResults(localData, "local"); // Mostrar todos al cargar
+        } catch(err) {
+            alert("Error leyendo el archivo JSON.");
+            localData = [];
+        }
+    };
+    reader.readAsText(file);
+});
 
 document.getElementById("query").addEventListener("keypress", e => {
     if(e.key === "Enter") searchContent();
